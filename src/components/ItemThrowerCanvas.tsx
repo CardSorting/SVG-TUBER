@@ -49,14 +49,20 @@ export const ItemThrowerCanvas = React.memo<ItemThrowerCanvasProps>(({ onHeadImp
     let animId: number | null = null;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = window.innerWidth;
+      const cssH = window.innerHeight;
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+      ctx.scale(dpr, dpr);
     };
     resize();
     window.addEventListener('resize', resize);
 
     const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       const pool = itemsPoolRef.current;
       let activeCount = 0;

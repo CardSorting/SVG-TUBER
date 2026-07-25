@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.0] - 2026-07-25
+
+### 🚀 Added
+- **36 Built-in Preset SVG Avatars**: Expanded avatar suite from 4 to 36 rich vector presets across Sci-Fi, Fantasy, Anime & Cute, and Monsters categories (*Cyber Ninja*, *Magical Star Girl*, *Nordic Berserker*, *Jellyfish Siren*, *Lich Skeleton*, *Mecha Bunny*, *Plague Doctor*, *Butterfly Fairy*, *Ember Dragon*, etc.).
+- **Paginated Avatar Gallery & Category Filters**: Built a paginated control gallery with real-time genre category pills (`All`, `Sci-Fi`, `Fantasy`, `Anime & Cute`, `Monsters`), live vector thumbnail showcase strip, 2x2 grid/list view toggle, and smart windowed pagination with ellipsis (`1  2  3  ...  9`).
+- **Multi-Mode Lip Sync Engine**: Added 1-click Lip Sync Mode selection in Studio Dashboard:
+  - **Phoneme Mode**: Real-time audio formant visemes + spectral flux syllable onset tracking.
+  - **PNGTuber Mode**: Dual-harmonic 3.8 Hz syllable flapping wave with talking posture baseline.
+  - **Continuous Mode**: Continuous scaling and position morphing.
+- **Adaptive Resting Lips Calibration & Sensitivity Slider**: Added real-time resting lips baseline zero-point calibration and customizable mouth sensitivity slider (`0.5x` to `2.5x`).
+- **60 FPS Opacity Cross-Fade Dissolve**: Replaced binary display popping with smooth CSS opacity cross-fade dissolve (`transition: opacity 0.07s ease-in-out`) between vector mouth layers.
+- **Organic Facial Coupling**: Added subtle vertical jaw drop translation and eyebrow flex sync during speech.
+
+---
+
 ## [4.0.0] - 2026-07-25
 
 ### 🚀 Added

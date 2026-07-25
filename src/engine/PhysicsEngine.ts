@@ -39,7 +39,7 @@ export class PhysicsEngine {
   private prevHeadPitch = 0;
   private lastTime = performance.now();
 
-  public update(raw: FaceTrackingData, config: SpringPhysicsConfig, lerpFactor: number = 0.3): FaceTrackingData {
+  public update(raw: FaceTrackingData, config: SpringPhysicsConfig & { lipSyncMode?: string }, lerpFactor: number = 0.3): FaceTrackingData {
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
@@ -88,8 +88,33 @@ export class PhysicsEngine {
     this.smoothed.leftEyeOpen = this.lerp(Number.isFinite(this.smoothed.leftEyeOpen) ? this.smoothed.leftEyeOpen : 1, finalLeftEye, eyeFactor);
     this.smoothed.rightEyeOpen = this.lerp(Number.isFinite(this.smoothed.rightEyeOpen) ? this.smoothed.rightEyeOpen : 1, finalRightEye, eyeFactor);
 
-    this.smoothed.mouthOpen = this.lerp(Number.isFinite(this.smoothed.mouthOpen) ? this.smoothed.mouthOpen : 0, Number.isFinite(raw.mouthOpen) ? raw.mouthOpen : 0, factor * 1.6);
-    this.smoothed.mouthWide = this.lerp(Number.isFinite(this.smoothed.mouthWide) ? this.smoothed.mouthWide : 0, Number.isFinite(raw.mouthWide) ? raw.mouthWide : 0, factor);
+    // 1. Multi-Mode Lip Sync Engine (phoneme, pngtuber, continuous)
+    const rawMouthOpen = Number.isFinite(raw.mouthOpen) ? raw.mouthOpen : 0;
+    let targetMouthOpen = rawMouthOpen;
+
+    if (config.lipSyncMode === 'pngtuber') {
+      if (raw.isSpeaking || rawMouthOpen > 0.06) {
+        const primaryWave = (Math.sin(now * 0.014) + 1) * 0.5;
+        const secondaryWave = Math.sin(now * 0.028) * 0.18;
+        const organicFlap = Math.max(0, Math.min(1, primaryWave + secondaryWave));
+        targetMouthOpen = 0.26 + organicFlap * Math.min(0.42, Math.max(0.18, rawMouthOpen * 0.55));
+      } else {
+        targetMouthOpen = 0;
+      }
+    } else {
+      // Default 'phoneme' & 'continuous' mode (Direct voice volume with syllable hold)
+      targetMouthOpen = rawMouthOpen;
+    }
+
+    const currentMouthOpen = Number.isFinite(this.smoothed.mouthOpen) ? this.smoothed.mouthOpen : 0;
+    const mouthAttackFactor = targetMouthOpen > currentMouthOpen ? Math.min(1, factor * 2.0) : Math.min(1, factor * 1.0);
+    this.smoothed.mouthOpen = this.lerp(currentMouthOpen, targetMouthOpen, mouthAttackFactor);
+
+    const rawMouthWide = Number.isFinite(raw.mouthWide) ? raw.mouthWide : 0;
+    const currentMouthWide = Number.isFinite(this.smoothed.mouthWide) ? this.smoothed.mouthWide : 0;
+    const mouthWideFactor = Math.min(1, factor * 1.8);
+    this.smoothed.mouthWide = this.lerp(currentMouthWide, rawMouthWide, mouthWideFactor);
+
     this.smoothed.eyebrowRaise = this.lerp(Number.isFinite(this.smoothed.eyebrowRaise) ? this.smoothed.eyebrowRaise : 0, Number.isFinite(raw.eyebrowRaise) ? raw.eyebrowRaise : 0, factor);
     this.smoothed.isSpeaking = !!raw.isSpeaking;
     this.smoothed.audioVolume = this.lerp(Number.isFinite(this.smoothed.audioVolume) ? this.smoothed.audioVolume : 0, Number.isFinite(raw.audioVolume) ? raw.audioVolume : 0, 0.4);

@@ -52,10 +52,26 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
       svg.style.height = '100%';
       svg.style.maxHeight = '80vh';
       svg.style.display = 'block';
+      svg.setAttribute('shape-rendering', 'geometricPrecision');
+      svg.setAttribute('text-rendering', 'geometricPrecision');
+      svg.setAttribute('color-interpolation-filters', 'sRGB');
+      svg.style.imageRendering = 'high-quality';
 
       // Pre-cache DOM query nodes to eliminate querySelector calls per frame
+      const mouthClosed = svg.querySelector('#mouth_closed') as SVGElement | null;
+      const mouthSmile = svg.querySelector('#mouth_smile') as SVGElement | null;
+      const mouthOpenWide = svg.querySelector('#mouth_open_wide') as SVGElement | null;
+      const mouthO = svg.querySelector('#mouth_o') as SVGElement | null;
+
+      [mouthClosed, mouthSmile, mouthOpenWide, mouthO].forEach((el) => {
+        if (el) {
+          el.style.transition = 'opacity 0.07s ease-in-out';
+          el.style.display = 'block';
+        }
+      });
+
       nodeCacheRef.current = {
-        headGroup: svg.querySelector('#head_base_group'),
+        headGroup: svg.querySelector('#head_base_group') || svg.querySelector('#head_group'),
         eyebrowsGroup: svg.querySelector('#eyebrows_group'),
         eyeLeftGroup: svg.querySelector('#eye_left_group'),
         eyeRightGroup: svg.querySelector('#eye_right_group'),
@@ -69,10 +85,10 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
         irisLeftEl: svg.querySelector('#iris_left'),
         eyeRightClosedEl: svg.querySelector('#eye_right_closed'),
         irisRightEl: svg.querySelector('#iris_right'),
-        mouthClosed: svg.querySelector('#mouth_closed'),
-        mouthSmile: svg.querySelector('#mouth_smile'),
-        mouthOpenWide: svg.querySelector('#mouth_open_wide'),
-        mouthO: svg.querySelector('#mouth_o'),
+        mouthClosed,
+        mouthSmile,
+        mouthOpenWide,
+        mouthO,
         expr_blush: svg.querySelector('#expr_blush'),
         expr_angry: svg.querySelector('#expr_angry'),
         expr_shock: svg.querySelector('#expr_shock'),
@@ -86,12 +102,12 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
     lastMouthStateRef.current = '';
     lastExpressionRef.current = '';
     return () => {
-      nodeCacheRef.current = {};
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-    };
-  }, [puppet]);
+        nodeCacheRef.current = {};
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+      };
+    }, [puppet]);
 
   useEffect(() => {
     let animId: number;
@@ -119,6 +135,8 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
         const squishX = r2(currentPhysics && Number.isFinite(currentPhysics.squishX) && currentPhysics.squishX > 0 ? currentPhysics.squishX : 1.0);
         const squishY = r2(currentPhysics && Number.isFinite(currentPhysics.squishY) && currentPhysics.squishY > 0 ? currentPhysics.squishY : 1.0);
 
+        const openVal = data.mouthOpen || 0;
+
         // Head transform string
         const headTransform = `translate(${posX}px, ${posY}px) rotate(${rotZ}deg) scale(${squishX}, ${squishY}) skewY(${r2(rotY * 0.15)}deg) skewX(${r2(rotX * 0.1)}deg)`;
 
@@ -131,13 +149,13 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
           el.style.transform = customTransform;
         };
 
-        // 1. Head Base & Facial Features
+        // 1. Head Base & Facial Features with Organic Jaw & Eyebrow Coupling
         applyTransform(nodes.headGroup, headTransform, origin);
-        applyTransform(nodes.eyebrowsGroup, `${headTransform} translate(0px, ${-(data.eyebrowRaise || 0) * 10}px)`, origin);
+        applyTransform(nodes.eyebrowsGroup, `${headTransform} translate(0px, ${-(data.eyebrowRaise || 0) * 10 - r2(openVal * 2.5)}px)`, origin);
         applyTransform(nodes.eyeLeftGroup, `${headTransform} translate(${rotY * 0.3}px, ${rotX * 0.2}px)`, '330px 365px');
         applyTransform(nodes.eyeRightGroup, `${headTransform} translate(${rotY * 0.3}px, ${rotX * 0.2}px)`, '470px 365px');
         applyTransform(nodes.noseGroup, `${headTransform} translate(${rotY * 0.4}px, ${rotX * 0.3}px)`, '400px 415px');
-        applyTransform(nodes.mouthGroup, `${headTransform} translate(${rotY * 0.35}px, ${rotX * 0.25}px)`, '400px 445px');
+        applyTransform(nodes.mouthGroup, `${headTransform} translate(${rotY * 0.35}px, ${rotX * 0.25 + r2(openVal * 3.5)}px)`, '400px 445px');
 
         // 2. Secondary Motion: Hair Front, Back, Ears & Body
         const hairSway = currentPhysics && currentPhysics.hairSway && Number.isFinite(currentPhysics.hairSway.pos) ? currentPhysics.hairSway.pos : 0;
@@ -167,28 +185,37 @@ export const SVGPuppetRenderer = React.memo<SVGPuppetRendererProps>(({
           if (nodes.irisRightEl) nodes.irisRightEl.style.display = isRightClosed ? 'none' : 'block';
         }
 
-        // 4. Formant Phoneme & Volume Mouth Morphing (Guarded against redundant 60 FPS DOM writes)
-        const openVal = data.mouthOpen || 0;
+        // 4. Formant Phoneme & Volume Mouth Morphing (Smooth Opacity Cross-Fade)
         const phoneme = data.phoneme || 'M';
         let mouthState = 'closed';
-        if (openVal < 0.12 || phoneme === 'M') {
+
+        if (openVal < 0.12) {
           mouthState = (currentConfig.activeExpression === 'happy' || currentConfig.activeExpression === 'blush') ? 'smile' : 'closed';
-        } else if (phoneme === 'A') {
-          mouthState = 'openWide';
-        } else if (phoneme === 'E' || phoneme === 'I') {
-          mouthState = 'smile';
-        } else if (phoneme === 'O' || phoneme === 'U') {
-          mouthState = 'o';
+        } else if (openVal < 0.40) {
+          // Half-open talking shape (smile / shape 1)
+          if (phoneme === 'O' || phoneme === 'U') {
+            mouthState = nodes.mouthO ? 'o' : (nodes.mouthSmile ? 'smile' : 'openWide');
+          } else {
+            mouthState = nodes.mouthSmile ? 'smile' : (nodes.mouthOpenWide ? 'openWide' : 'closed');
+          }
         } else {
-          mouthState = 'smile';
+          // Open talking shape (openWide / shape 2)
+          if (phoneme === 'O' || phoneme === 'U') {
+            mouthState = nodes.mouthO ? 'o' : (nodes.mouthOpenWide ? 'openWide' : 'smile');
+          } else {
+            mouthState = nodes.mouthOpenWide ? 'openWide' : (nodes.mouthSmile ? 'smile' : 'closed');
+          }
         }
 
         if (lastMouthStateRef.current !== mouthState) {
           lastMouthStateRef.current = mouthState;
-          if (nodes.mouthClosed) nodes.mouthClosed.style.display = mouthState === 'closed' ? 'block' : 'none';
-          if (nodes.mouthSmile) nodes.mouthSmile.style.display = mouthState === 'smile' ? 'block' : 'none';
-          if (nodes.mouthOpenWide) nodes.mouthOpenWide.style.display = mouthState === 'openWide' ? 'block' : 'none';
-          if (nodes.mouthO) nodes.mouthO.style.display = mouthState === 'o' ? 'block' : 'none';
+          const setOpacity = (el: SVGElement | null, active: boolean) => {
+            if (el) el.style.opacity = active ? '1' : '0';
+          };
+          setOpacity(nodes.mouthClosed, mouthState === 'closed');
+          setOpacity(nodes.mouthSmile, mouthState === 'smile');
+          setOpacity(nodes.mouthOpenWide, mouthState === 'openWide');
+          setOpacity(nodes.mouthO, mouthState === 'o');
         }
 
         // 5. Expression Layer Visibility (Guarded against redundant 60 FPS DOM writes)

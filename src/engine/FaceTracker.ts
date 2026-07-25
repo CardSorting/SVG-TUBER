@@ -22,6 +22,15 @@ export class FaceTracker {
   private mouseX = 0;
   private mouseY = 0;
 
+  private restingMouthRatio = 0.08;
+  public mouthSensitivity = 1.2;
+
+  private audioEnvelope = 0;
+  private speechHoldFrames = 0;
+  private lastActivePhoneme: PhonemeType = 'A';
+  private lastMidEnergy = 0;
+  private syllablePulseVal = 0;
+
   private onTrackingUpdateCallback: ((data: FaceTrackingData) => void) | null = null;
 
   public currentData: FaceTrackingData = {
@@ -60,6 +69,16 @@ export class FaceTracker {
     }
   }
 
+  public recalibrateRestingMouth() {
+    this.restingMouthRatio = 0.08;
+  }
+
+  public setMouthSensitivity(sensitivity: number) {
+    if (Number.isFinite(sensitivity) && sensitivity > 0) {
+      this.mouthSensitivity = sensitivity;
+    }
+  }
+
   public detachMouseListener() {
     if (this.mouseListenerAttached) {
       window.removeEventListener('mousemove', this.handleMouseMove);
@@ -74,13 +93,12 @@ export class FaceTracker {
         this.landmarker = null;
       }
 
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      );
+      // Use 100% local native assets for WASM and model files
+      const filesetResolver = await FilesetResolver.forVisionTasks('/wasm');
 
       this.landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+          modelAssetPath: '/models/face_landmarker.task',
           delegate: 'GPU',
         },
         outputFaceBlendshapes: true,
@@ -90,14 +108,12 @@ export class FaceTracker {
 
       return true;
     } catch (err: any) {
-      console.warn('GPU face landmarker fallback to CPU:', err);
+      console.warn('GPU local face landmarker fallback to CPU:', err);
       try {
-        const filesetResolver = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
+        const filesetResolver = await FilesetResolver.forVisionTasks('/wasm');
         this.landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
           baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            modelAssetPath: '/models/face_landmarker.task',
             delegate: 'CPU',
           },
           outputFaceBlendshapes: true,
@@ -106,24 +122,41 @@ export class FaceTracker {
         });
         return true;
       } catch (e: any) {
-        this.cameraError = 'Could not load face landmarker: ' + e?.message;
+        console.error('Could not load local face landmarker:', e);
+        this.cameraError = 'Could not load local face landmarker: ' + e?.message;
         return false;
       }
     }
   }
 
-  public stopCamera() {
-    this.cameraRequestId++;
-    if (this.videoElement && this.videoElement.srcObject) {
+  private cameraStream: MediaStream | null = null;
+
+  public stopCamera(incrementRequestId = true) {
+    if (incrementRequestId) {
+      this.cameraRequestId++;
+    }
+    if (this.cameraStream) {
       try {
-        (this.videoElement.srcObject as MediaStream).getTracks().forEach((track) => track.stop());
+        this.cameraStream.getTracks().forEach((track) => track.stop());
       } catch (_) {}
+      this.cameraStream = null;
+    }
+    if (this.videoElement && this.videoElement.srcObject) {
       this.videoElement.srcObject = null;
     }
     this.isCameraActive = false;
   }
 
+  public getVideoElement(): HTMLVideoElement | null {
+    return this.videoElement;
+  }
+
+  public getCameraStream(): MediaStream | null {
+    return this.cameraStream;
+  }
+
   public async startCamera(deviceId?: string): Promise<boolean> {
+    this.stopCamera(false);
     const currentReqId = ++this.cameraRequestId;
     this.attachMouseListener();
     try {
@@ -135,26 +168,38 @@ export class FaceTracker {
         return false;
       }
 
-      this.stopCamera();
-
       if (!this.videoElement) {
         this.videoElement = document.createElement('video');
         this.videoElement.setAttribute('playsinline', '');
         this.videoElement.setAttribute('autoplay', '');
         this.videoElement.muted = true;
+        this.videoElement.style.position = 'fixed';
+        this.videoElement.style.top = '-9999px';
+        this.videoElement.style.left = '-9999px';
+        this.videoElement.style.width = '1px';
+        this.videoElement.style.height = '1px';
+        this.videoElement.style.opacity = '0';
+        this.videoElement.style.pointerEvents = 'none';
+        document.body.appendChild(this.videoElement);
       }
 
-      const constraints: MediaStreamConstraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : { width: { ideal: 640 }, height: { ideal: 480 } }
-      };
+      let stream: MediaStream;
+      try {
+        const videoConstraints = (deviceId && deviceId !== 'default' && deviceId !== '')
+          ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+          : { width: { ideal: 640 }, height: { ideal: 480 } };
+        stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+      } catch (firstErr) {
+        console.warn('Exact camera constraint failed, falling back to default camera stream:', firstErr);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (this.cameraRequestId !== currentReqId) {
-        // Obsolete request, stop tracks immediately to prevent leak
         stream.getTracks().forEach((track) => track.stop());
         return false;
       }
 
+      this.cameraStream = stream;
       this.videoElement.srcObject = stream;
       try {
         await this.videoElement.play();
@@ -164,13 +209,25 @@ export class FaceTracker {
         }
       }
 
+      if (!this.landmarker) {
+        this.initMediaPipe().catch((err) => console.warn('Async MediaPipe landmarker init warning:', err));
+      }
+
       this.isCameraActive = true;
       this.startTrackingLoop();
       return true;
     } catch (err: any) {
       if (this.cameraRequestId === currentReqId) {
         console.warn('Camera access error:', err);
-        this.cameraError = 'Camera access denied or unavailable: ' + err?.message;
+        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+          this.cameraError = 'Camera permission was denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and retry.';
+        } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+          this.cameraError = 'No camera device found. Please connect a webcam and retry.';
+        } else if (err?.name === 'NotReadableError' || err?.name === 'TrackStartError') {
+          this.cameraError = 'Camera is in use by another app (Zoom, OBS, Teams). Please close other camera apps and retry.';
+        } else {
+          this.cameraError = 'Camera error: ' + (err?.message || 'Access denied or device unavailable.');
+        }
         this.isCameraActive = false;
       }
       this.startTrackingLoop();
@@ -282,7 +339,16 @@ export class FaceTracker {
 
       micVolume = sum / (len * 255);
 
-      if (micVolume > 0.04) {
+      const energyFlux = Math.max(0, midEnergy - this.lastMidEnergy);
+      this.lastMidEnergy = midEnergy;
+
+      if (energyFlux > 12 && micVolume > 0.025) {
+        this.syllablePulseVal = 1.0;
+      } else {
+        this.syllablePulseVal = Math.max(0, this.syllablePulseVal - 0.12);
+      }
+
+      if (micVolume > 0.03) {
         if (highEnergy > midEnergy * 1.3 && highEnergy > lowEnergy) {
           detectedPhoneme = highEnergy > midEnergy * 1.8 ? 'I' : 'E';
         } else if (midEnergy > lowEnergy * 1.1) {
@@ -292,6 +358,26 @@ export class FaceTracker {
         }
       } else {
         detectedPhoneme = 'M';
+      }
+    }
+
+    // Syllable Speech Envelope Smoothing (Fast attack 30ms, natural decay release 150ms)
+    if (micVolume > this.audioEnvelope) {
+      this.audioEnvelope = this.audioEnvelope * 0.65 + micVolume * 0.35;
+    } else {
+      this.audioEnvelope = this.audioEnvelope * 0.88 + micVolume * 0.12;
+    }
+
+    // Syllable Hold Filter (Holds talking state across consonant pauses during continuous human speech)
+    if (this.audioEnvelope > 0.025) {
+      this.speechHoldFrames = 8; // ~130ms hold window at 60 FPS
+      if (detectedPhoneme !== 'M') {
+        this.lastActivePhoneme = detectedPhoneme;
+      }
+    } else if (this.speechHoldFrames > 0) {
+      this.speechHoldFrames--;
+      if (detectedPhoneme === 'M' && this.lastActivePhoneme) {
+        detectedPhoneme = this.lastActivePhoneme;
       }
     }
 
@@ -310,9 +396,12 @@ export class FaceTracker {
       this.currentData.positionX = this.mouseX * 0.4;
       this.currentData.positionY = this.mouseY * 0.3;
 
-      const audioMouthOpen = Math.min(1, micVolume * 7);
+      let audioMouthOpen = 0;
+      if (this.speechHoldFrames > 0 || this.audioEnvelope > 0.025) {
+        audioMouthOpen = Math.min(1, Math.max(0.3, (this.audioEnvelope - 0.02) * 5.0 * this.mouthSensitivity));
+      }
       this.currentData.mouthOpen = audioMouthOpen;
-      this.currentData.isSpeaking = micVolume > 0.04;
+      this.currentData.isSpeaking = audioMouthOpen > 0.1;
     } else if (this.isCameraActive && this.videoElement && this.landmarker && this.videoElement.readyState >= 2) {
       const startTimeMs = performance.now();
       const results = this.landmarker.detectForVideo(this.videoElement, startTimeMs);
@@ -356,18 +445,66 @@ export class FaceTracker {
         const rightEAR = Math.hypot(rightTop.x - rightBottom.x, rightTop.y - rightBottom.y) / (Math.hypot(rightH1.x - rightH2.x, rightH1.y - rightH2.y) || 1);
         this.currentData.rightEyeOpen = Math.max(0, Math.min(1, (rightEAR - 0.12) / 0.18));
 
+        // Multi-point inner lip height calculation (13-14, 82-87, 312-317)
         const mouthTop = landmarks[13];
         const mouthBottom = landmarks[14];
+        const mouthTop2 = landmarks[82] || mouthTop;
+        const mouthBottom2 = landmarks[87] || mouthBottom;
+        const mouthTop3 = landmarks[312] || mouthTop;
+        const mouthBottom3 = landmarks[317] || mouthBottom;
+
+        const h1 = Math.hypot(mouthTop.x - mouthBottom.x, mouthTop.y - mouthBottom.y);
+        const h2 = Math.hypot(mouthTop2.x - mouthBottom2.x, mouthTop2.y - mouthBottom2.y);
+        const h3 = Math.hypot(mouthTop3.x - mouthBottom3.x, mouthTop3.y - mouthBottom3.y);
+        const avgMouthHeight = (h1 * 2 + h2 + h3) / 4;
+
         const mouthLeft = landmarks[61];
         const mouthRight = landmarks[291];
-        const mouthHeight = Math.hypot(mouthTop.x - mouthBottom.x, mouthTop.y - mouthBottom.y);
         const mouthWidth = Math.hypot(mouthLeft.x - mouthRight.x, mouthLeft.y - mouthRight.y);
 
-        const cameraMouthOpen = Math.max(0, Math.min(1, (mouthHeight / (mouthWidth || 1) - 0.05) * 3));
-        const audioMouthOpen = Math.min(1, micVolume * 6.5);
+        const mouthRatio = avgMouthHeight / (mouthWidth || 1);
+
+        // Adaptive Resting Baseline Calibration (adapts to user's resting mouth ratio when silent)
+        if (micVolume < 0.02) {
+          this.restingMouthRatio = this.restingMouthRatio * 0.992 + mouthRatio * 0.008;
+        }
+
+        const deltaMouthRatio = Math.max(0, mouthRatio - Math.min(0.12, this.restingMouthRatio));
+        let cameraMouthOpen = Math.max(0, Math.min(1, deltaMouthRatio * 3.2 * this.mouthSensitivity));
+        let cameraMouthWide = Math.max(0, Math.min(1, (mouthWidth - 0.08) * 3.5 * this.mouthSensitivity));
+
+        // MediaPipe ML Face Blendshape Extraction (jawOpen, mouthPucker, mouthFunnel, mouthSmile)
+        if (results.faceBlendshapes && results.faceBlendshapes.length > 0 && results.faceBlendshapes[0].categories) {
+          const cats = results.faceBlendshapes[0].categories;
+          const getScore = (name: string) => cats.find((c: any) => c.categoryName === name)?.score || 0;
+
+          const jawOpen = getScore('jawOpen');
+          const mouthFunnel = getScore('mouthFunnel');
+          const mouthPucker = getScore('mouthPucker');
+          const mouthSmileL = getScore('mouthSmileLeft');
+          const mouthSmileR = getScore('mouthSmileRight');
+
+          const blendOpen = Math.max(jawOpen * 1.0, (mouthFunnel + mouthPucker) * 0.9) * this.mouthSensitivity;
+          if (blendOpen > 0.04) {
+            cameraMouthOpen = Math.max(cameraMouthOpen, Math.min(1, blendOpen));
+          }
+
+          const blendWide = Math.max((mouthSmileL + mouthSmileR) * 0.8, getScore('mouthStretchLeft')) * this.mouthSensitivity;
+          if (blendWide > 0.04) {
+            cameraMouthWide = Math.max(cameraMouthWide, Math.min(1, blendWide));
+          }
+        }
+
+        let audioMouthOpen = 0;
+        if (this.speechHoldFrames > 0 || this.audioEnvelope > 0.025) {
+          const baseOpen = Math.min(1, Math.max(0.22, (this.audioEnvelope - 0.02) * 4.0 * this.mouthSensitivity));
+          const pulseModulation = 0.7 + this.syllablePulseVal * 0.5;
+          audioMouthOpen = Math.min(1, baseOpen * pulseModulation);
+        }
+
         this.currentData.mouthOpen = Math.max(cameraMouthOpen, audioMouthOpen);
-        this.currentData.mouthWide = Math.max(0, Math.min(1, (mouthWidth - 0.1) * 4));
-        this.currentData.isSpeaking = this.currentData.mouthOpen > 0.12 || micVolume > 0.05;
+        this.currentData.mouthWide = cameraMouthWide;
+        this.currentData.isSpeaking = this.currentData.mouthOpen > 0.08 || micVolume > 0.02;
 
         const leftEyebrow = landmarks[70];
         const eyebrowDist = Math.hypot(leftEyebrow.x - leftTop.x, leftEyebrow.y - leftTop.y);

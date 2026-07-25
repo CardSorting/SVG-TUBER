@@ -21,9 +21,9 @@ export const MinimalMascotAvatar: SVGPuppetDefinition = {
     heart_eyes: ['expr_hearts'],
   },
   svgContent: `
-  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; overflow: visible;">
+  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="width: 100%; height: 100%; overflow: visible;">
     <defs>
-      <linearGradient id="botGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="botGrad" x1="0%" y1="0%" x2="100%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#38bdf8" />
         <stop offset="100%" stop-color="#818cf8" />
       </linearGradient>

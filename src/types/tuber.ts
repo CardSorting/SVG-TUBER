@@ -38,6 +38,7 @@ export interface SpringPhysicsConfig {
   bodySway: number;
   squishStrength: number;
   windStrength: number;
+  mouthSensitivity?: number;
   enableBreathing: boolean;
   enableAutoBlink: boolean;
 }
@@ -60,6 +61,7 @@ export interface EngineConfig {
   enableSFX: boolean;
   showCameraPIP: boolean;
   activeExpression: ExpressionType;
+  lipSyncMode?: 'phoneme' | 'pngtuber' | 'continuous';
   enableClickThrough: boolean;
   alwaysOnTop: boolean;
   scale: number;
@@ -83,6 +85,7 @@ export interface SVGPuppetDefinition {
   id: string;
   name: string;
   author: string;
+  category?: string;
   svgContent: string;
   defaultConfig: Partial<SpringPhysicsConfig>;
   expressionLayers: Record<ExpressionType, string[]>;

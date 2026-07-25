@@ -112,6 +112,9 @@ export const AvatarPropsOverlay = React.memo<AvatarPropsOverlayProps>(({
       <svg
         viewBox="0 0 800 900"
         xmlns="http://www.w3.org/2000/svg"
+        shapeRendering="geometricPrecision"
+        textRendering="geometricPrecision"
+        colorInterpolationFilters="sRGB"
         className="w-[650px] h-[750px] max-w-full max-h-[85vh] overflow-visible"
       >
         <g ref={gRef}>

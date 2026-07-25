@@ -61,13 +61,14 @@ flowchart TD
 ## 🧩 Core Engine Modules
 
 ### 1. `FaceTracker` ([src/engine/FaceTracker.ts](file:///c:/Users/media/OneDrive/Desktop/SVG-TUBER/src/engine/FaceTracker.ts))
-- **Landmark Detection**: Uses Google MediaPipe `@mediapipe/tasks-vision` `FaceLandmarker` with 478 3D landmarks.
+- **Landmark & ML Blendshape Detection**: Uses Google MediaPipe `@mediapipe/tasks-vision` `FaceLandmarker` with 478 3D landmarks + ML Blendshapes (`jawOpen`, `mouthPucker`, `mouthFunnel`, `mouthSmileLeft`, `mouthSmileRight`).
 - **Head Rotation Matrix**: Calculates head Roll via `atan2(dY, dX)` across outer eye corners, Yaw via nose-to-eye center ratio, and Pitch via nose vertical displacement.
 - **Eye Aspect Ratio (EAR)**: Computes EAR for left and right eyes to determine blink ratios (`< 0.25` indicates closed eye).
-- **Formant & Viseme Detection**: Analyzes 512-bin FFT frequency spectrum from microphone input:
-  - High energy dominance -> `I` / `E`
-  - Mid energy dominance -> `A` / `O`
-  - Low energy dominance -> `U` / `M`
+- **3-Way Hybrid Lip Sync Engine**:
+  - **Formant & Viseme Detection**: Analyzes 512-bin FFT frequency spectrum from microphone input for `A`, `E`, `I`, `O`, `U`, `M` visemes.
+  - **Spectral Flux Syllable Onset Tracking**: Computes real-time spectral energy derivative ($\Delta E_{\text{mid}}$) to trigger syllable pulses matching the user's exact speaking speed.
+  - **Adaptive Resting Lips Baseline**: Continuously calibrates individual resting mouth ratios when silent to guarantee a clean zero-point baseline.
+  - **Multi-Mode Engine Options**: Switchable between **Phoneme Voice Tracking**, **PNGTuber 3.8 Hz Syllable Flapping**, and **Continuous Morphing**.
 
 ### 2. `PhysicsEngine` ([src/engine/PhysicsEngine.ts](file:///c:/Users/media/OneDrive/Desktop/SVG-TUBER/src/engine/PhysicsEngine.ts))
 - **Hooke's Law Spring Simulation**:

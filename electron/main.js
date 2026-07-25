@@ -49,6 +49,21 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  const { session } = require('electron');
+
+  // Handle camera & microphone permission requests automatically in Electron
+  if (session.defaultSession) {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      const allowed = ['media', 'camera', 'microphone', 'display-capture', 'notifications'];
+      callback(allowed.includes(permission));
+    });
+
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+      const allowed = ['media', 'camera', 'microphone', 'display-capture', 'notifications'];
+      return allowed.includes(permission);
+    });
+  }
+
   createWindow();
 
   app.on('activate', () => {

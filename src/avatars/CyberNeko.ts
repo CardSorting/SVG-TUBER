@@ -21,43 +21,43 @@ export const CyberNekoAvatar: SVGPuppetDefinition = {
     heart_eyes: ['expr_hearts'],
   },
   svgContent: `
-  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; overflow: visible;">
+  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="width: 100%; height: 100%; overflow: visible;">
     <defs>
       <!-- Gradients -->
-      <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#ec4899" />
         <stop offset="50%" stop-color="#a855f7" />
         <stop offset="100%" stop-color="#3b82f6" />
       </linearGradient>
       
-      <linearGradient id="cyberEarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="cyberEarGrad" x1="0%" y1="0%" x2="0%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#06b6d4" />
         <stop offset="100%" stop-color="#3b82f6" />
       </linearGradient>
 
-      <linearGradient id="eyeGradLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="eyeGradLeft" x1="0%" y1="0%" x2="0%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#06b6d4" />
         <stop offset="60%" stop-color="#3b82f6" />
         <stop offset="100%" stop-color="#1d4ed8" />
       </linearGradient>
 
-      <linearGradient id="eyeGradRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="eyeGradRight" x1="0%" y1="0%" x2="0%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#f43f5e" />
         <stop offset="60%" stop-color="#d946ef" />
         <stop offset="100%" stop-color="#8b5cf6" />
       </linearGradient>
 
-      <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#fff5eb" />
         <stop offset="100%" stop-color="#ffedd5" />
       </linearGradient>
 
-      <linearGradient id="jacketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="jacketGrad" x1="0%" y1="0%" x2="100%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#0f172a" />
         <stop offset="100%" stop-color="#1e1b4b" />
       </linearGradient>
 
-      <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
         <feGaussianBlur stdDeviation="6" result="blur" />
         <feComposite in="SourceGraphic" in2="blur" operator="over" />
       </filter>

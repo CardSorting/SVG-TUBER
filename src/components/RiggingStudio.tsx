@@ -9,27 +9,36 @@ interface RiggingStudioProps {
 
 const RIGGING_LAYER_FIELDS = [
   { key: 'head', label: 'Head Base Layer ID', default: 'head_base_group' },
+  { key: 'body', label: 'Body & Clothes Group ID', default: 'body_group' },
   { key: 'hairFront', label: 'Hair Front Strand ID', default: 'hair_front_group' },
   { key: 'hairBack', label: 'Hair Back Strand ID', default: 'hair_back_group' },
   { key: 'eyeLeft', label: 'Left Eye Group ID', default: 'eye_left_group' },
   { key: 'eyeRight', label: 'Right Eye Group ID', default: 'eye_right_group' },
+  { key: 'nose', label: 'Nose Layer ID', default: 'nose_group' },
   { key: 'mouth', label: 'Mouth Container ID', default: 'mouth_group' },
   { key: 'ears', label: 'Ears / Accessories ID', default: 'ears_group' },
+  { key: 'eyebrows', label: 'Eyebrows Group ID', default: 'eyebrows_group' },
+  { key: 'eyeLeftClosed', label: 'Left Closed Eye ID', default: 'eye_left_closed' },
+  { key: 'eyeRightClosed', label: 'Right Closed Eye ID', default: 'eye_right_closed' },
+  { key: 'irisLeft', label: 'Left Iris ID', default: 'iris_left' },
+  { key: 'irisRight', label: 'Right Iris ID', default: 'iris_right' },
+  { key: 'mouthClosed', label: 'Mouth Closed Line ID', default: 'mouth_closed' },
+  { key: 'mouthSmile', label: 'Mouth Smile Shape ID', default: 'mouth_smile' },
+  { key: 'mouthOpenWide', label: 'Mouth Open Wide ID', default: 'mouth_open_wide' },
+  { key: 'mouthO', label: 'Mouth O-Shape ID', default: 'mouth_o' },
+  { key: 'exprBlush', label: 'Expression: Blush ID', default: 'expr_blush' },
+  { key: 'exprAngry', label: 'Expression: Angry ID', default: 'expr_angry' },
+  { key: 'exprShock', label: 'Expression: Shock ID', default: 'expr_shock' },
+  { key: 'exprTears', label: 'Expression: Tears ID', default: 'expr_tears' },
+  { key: 'exprStars', label: 'Expression: Stars ID', default: 'expr_stars' },
+  { key: 'exprHearts', label: 'Expression: Hearts ID', default: 'expr_hearts' },
 ];
 
 export const RiggingStudio = React.memo<RiggingStudioProps>(({ onAddCustomPuppet, onClose }) => {
   const [svgRaw, setSvgRaw] = useState<string | null>(null);
   const [puppetName, setPuppetName] = useState<string>('My Custom Puppet');
   const [discoveredLayers, setDiscoveredLayers] = useState<string[]>([]);
-  const [layerMap, setLayerMap] = useState<Record<string, string>>({
-    head: '',
-    hairFront: '',
-    hairBack: '',
-    eyeLeft: '',
-    eyeRight: '',
-    mouth: '',
-    ears: '',
-  });
+  const [layerMap, setLayerMap] = useState<Record<string, string>>({});
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,6 +60,26 @@ export const RiggingStudio = React.memo<RiggingStudioProps>(({ onAddCustomPuppet
       const doc = parser.parseFromString(content, 'image/svg+xml');
       const elementsWithId = Array.from(doc.querySelectorAll('[id]')).map((el) => el.id);
       setDiscoveredLayers(elementsWithId);
+
+      // Auto-match layer IDs if elements with matching names or keywords exist
+      const initialMap: Record<string, string> = {};
+      RIGGING_LAYER_FIELDS.forEach((item) => {
+        initialMap[item.key] = '';
+      });
+
+      RIGGING_LAYER_FIELDS.forEach((item) => {
+        if (elementsWithId.includes(item.default)) {
+          initialMap[item.key] = item.default;
+        } else {
+          const found = elementsWithId.find((id) =>
+            id.toLowerCase().includes(item.key.toLowerCase()) ||
+            id.toLowerCase().includes(item.default.toLowerCase())
+          );
+          if (found) initialMap[item.key] = found;
+        }
+      });
+
+      setLayerMap(initialMap);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -59,34 +88,74 @@ export const RiggingStudio = React.memo<RiggingStudioProps>(({ onAddCustomPuppet
   const handleSavePuppet = () => {
     if (!svgRaw) return;
 
-    // Auto tag layers if user mapped them
-    let processedSvg = svgRaw;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgRaw, 'image/svg+xml');
 
-    const newPuppet: SVGPuppetDefinition = {
-      id: `custom_${Date.now()}`,
-      name: puppetName,
-      author: 'User Created',
-      defaultConfig: {
-        hairSpringStiffness: 0.2,
-        hairDamping: 0.85,
-        earBounce: 0.5,
-        bodySway: 0.3,
-      },
-      expressionLayers: {
-        neutral: [],
-        happy: ['expr_blush'],
-        angry: ['expr_angry'],
-        shocked: ['expr_shock'],
-        blush: ['expr_blush'],
-        tears: ['expr_tears'],
-        star_eyes: ['expr_stars'],
-        heart_eyes: ['expr_hearts'],
-      },
-      svgContent: processedSvg,
-    };
+      const parserError = doc.querySelector('parsererror');
+      if (parserError) {
+        alert('Invalid SVG file format.');
+        return;
+      }
 
-    onAddCustomPuppet(newPuppet);
-    onClose();
+      const svgEl = doc.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('shape-rendering', 'geometricPrecision');
+        svgEl.setAttribute('text-rendering', 'geometricPrecision');
+        svgEl.setAttribute('color-interpolation-filters', 'sRGB');
+        if (!svgEl.getAttribute('style')) {
+          svgEl.setAttribute('style', 'width: 100%; height: 100%; overflow: visible;');
+        }
+      }
+
+      // Re-assign selected layer IDs to engine default IDs
+      RIGGING_LAYER_FIELDS.forEach((item) => {
+        const selectedId = layerMap[item.key];
+        const targetEngineId = item.default;
+
+        if (selectedId && selectedId !== targetEngineId) {
+          const el = doc.getElementById(selectedId);
+          if (el) {
+            const existingTarget = doc.getElementById(targetEngineId);
+            if (existingTarget && existingTarget !== el) {
+              existingTarget.removeAttribute('id');
+            }
+            el.setAttribute('id', targetEngineId);
+          }
+        }
+      });
+
+      const processedSvg = new XMLSerializer().serializeToString(doc);
+
+      const newPuppet: SVGPuppetDefinition = {
+        id: `custom_${Date.now()}`,
+        name: puppetName.trim() || 'My Custom Puppet',
+        author: 'User Created',
+        defaultConfig: {
+          hairSpringStiffness: 0.2,
+          hairDamping: 0.85,
+          earBounce: 0.5,
+          bodySway: 0.3,
+        },
+        expressionLayers: {
+          neutral: [],
+          happy: ['expr_blush'],
+          angry: ['expr_angry'],
+          shocked: ['expr_shock'],
+          blush: ['expr_blush'],
+          tears: ['expr_tears'],
+          star_eyes: ['expr_stars'],
+          heart_eyes: ['expr_hearts'],
+        },
+        svgContent: processedSvg,
+      };
+
+      onAddCustomPuppet(newPuppet);
+      onClose();
+    } catch (err) {
+      console.error('Error saving custom puppet:', err);
+      alert('Error parsing or saving custom SVG puppet.');
+    }
   };
 
   return (

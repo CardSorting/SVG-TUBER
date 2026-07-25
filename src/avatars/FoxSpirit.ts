@@ -22,21 +22,21 @@ export const FoxSpiritAvatar: SVGPuppetDefinition = {
     heart_eyes: ['expr_hearts'],
   },
   svgContent: `
-  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%; overflow: visible;">
+  <svg viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="width: 100%; height: 100%; overflow: visible;">
     <defs>
-      <linearGradient id="foxHairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="foxHairGrad" x1="0%" y1="0%" x2="100%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#f97316" />
         <stop offset="50%" stop-color="#fb923c" />
         <stop offset="100%" stop-color="#facc15" />
       </linearGradient>
 
-      <linearGradient id="spiritTailGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="spiritTailGrad" x1="0%" y1="0%" x2="0%" y2="100%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#ea580c" />
         <stop offset="70%" stop-color="#fdba74" />
         <stop offset="100%" stop-color="#ffffff" />
       </linearGradient>
 
-      <radialGradient id="flameEyeGrad" cx="50%" cy="50%" r="50%">
+      <radialGradient id="flameEyeGrad" cx="50%" cy="50%" r="50%" color-interpolation="sRGB">
         <stop offset="0%" stop-color="#fef08a" />
         <stop offset="60%" stop-color="#f97316" />
         <stop offset="100%" stop-color="#c2410c" />

@@ -39,10 +39,11 @@
 
 ## ✨ Feature Highlights
 
-- 🎭 **Built-in & Custom SVG Avatars**: Ships with 4 high-quality vector avatars (*Cyber Neko*, *Chibi Star*, *Fox Spirit*, *Minimal Mascot*) + built-in **Rigging Studio** to import & tag custom vector SVGs.
-- 👁️ **Hybrid AI Face & Cursor Tracking**: Powered by MediaPipe 478-landmark FaceLandmarker with instant GPU/CPU fallback and smooth mouse cursor gaze tracking.
+- 🎭 **36 Built-in Presets & Custom SVG Avatars**: Ships with 36 high-quality vector avatars across *Sci-Fi*, *Fantasy*, *Anime & Cute*, and *Monsters* themes (*Cyber Ninja*, *Magical Girl*, *Nordic Viking*, *Jellyfish Siren*, *Lich Skeleton*, *Mecha Bunny*, *Plague Doctor*, *Butterfly Fairy*, *Ember Dragon*, *Cyber Neko*, etc.) + built-in **Rigging Studio** to import & tag custom vector SVGs.
+- 🖼️ **Paginated Gallery & Category Showcase**: Real-time category filter pills (`All`, `Sci-Fi`, `Fantasy`, `Anime & Cute`, `Monsters`), live vector SVG thumbnail carousel strip, 2x2 grid / list view toggle, search filter, and smart window pagination.
+- 👁️ **Hybrid AI Face & Cursor Tracking**: Powered by MediaPipe 478-landmark FaceLandmarker with ML blendshape extraction (`jawOpen`, `mouthPucker`, `mouthFunnel`, `mouthSmile`), instant GPU/CPU fallback, and smooth mouse cursor gaze tracking.
+- 🗣️ **Multi-Mode Lip Sync & Adaptive Mouth Calibration**: 3-Way Hybrid Lip Sync Engine featuring **Phoneme Smart Tracking** (real-time audio formant visemes & spectral flux syllable onset tracking), **PNGTuber Cadence Flapping (3.8 Hz)**, and **Continuous Morphing**, complete with 60 FPS vector opacity cross-fade dissolve, organic jaw/eyebrow coupling, adaptive resting lips calibration, and customizable mouth sensitivity.
 - 🌀 **Spring Physics & Anime Squish/Stretch**: Dynamic secondary motion physics for hair sway, ear bounce, body sway, head impact squish/stretch, auto-blinking, and natural breathing cycles.
-- 🗣️ **Procedural Audio Formant Visemes**: Real-time microphone frequency formant analysis mapping voice audio to mouth shapes (`A`, `E`, `I`, `O`, `U`, `M`).
 - ⚡ **Web Audio SFX Engine**: Procedural synthesizers for happy chimes, anger rumbles, zaps, water drops, and star sweeps.
 - 🎨 **Cyber Post-Processing Shaders**: CRT Scanlines, VHS Tape Glitch, Cyber Bloom Glow, and Retro Pixel Grid canvas overlay filters.
 - 🕶️ **Interactive Props Overlay**: Cyber Visor, Pro Headset, Boba Tea Cup, and Angel Halo props tracking avatar movements in real-time.

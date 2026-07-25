@@ -29,6 +29,7 @@ import {
   Play,
   Square,
   Sparkle,
+  RotateCcw,
 } from 'lucide-react';
 
 interface ControlDashboardProps {
@@ -38,6 +39,7 @@ interface ControlDashboardProps {
   activePuppet: SVGPuppetDefinition;
   onSelectPuppet: (puppet: SVGPuppetDefinition) => void;
   onOpenRiggingStudio: () => void;
+  onRecalibrateMouth?: () => void;
   trackingStats: {
     yaw: number;
     pitch: number;
@@ -94,9 +96,15 @@ export const ControlDashboard = React.memo<ControlDashboardProps>(({
   onToggleMic,
   motionRecorder,
   onTriggerExpression,
+  onRecalibrateMouth,
 }) => {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'puppets' | 'props' | 'chat' | 'motion' | 'fx'>('puppets');
+  const [avatarSearch, setAvatarSearch] = useState('');
+  const [avatarCategory, setAvatarCategory] = useState<string>('All');
+  const [avatarPage, setAvatarPage] = useState(1);
+  const [avatarLayoutMode, setAvatarLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [avatarsPerPage, setAvatarsPerPage] = useState<number>(4);
   const [recordedFramesCount, setRecordedFramesCount] = useState<number>(0);
 
   const obsUrl = `${window.location.origin}/#obs`;
@@ -198,41 +206,215 @@ export const ControlDashboard = React.memo<ControlDashboardProps>(({
       </div>
 
       {/* TAB 1: PUPPETS */}
-      {activeTab === 'puppets' && (
-        <div className="flex flex-col gap-3">
-          <label className="font-semibold text-slate-300">Select Avatar</label>
-          <div className="flex flex-col gap-2">
-            {puppets.map((p) => {
-              const isSelected = p.id === activePuppet.id;
-              return (
+      {activeTab === 'puppets' && (() => {
+        const categories = ['All', 'Sci-Fi', 'Fantasy', 'Anime & Cute', 'Monsters'];
+        const filtered = puppets.filter((p) => {
+          const matchesCat =
+            avatarCategory === 'All' ||
+            (p.category && p.category.toLowerCase().includes(avatarCategory.toLowerCase())) ||
+            (!p.category && avatarCategory === 'All');
+          const matchesSearch =
+            p.name.toLowerCase().includes(avatarSearch.toLowerCase()) ||
+            p.author.toLowerCase().includes(avatarSearch.toLowerCase());
+          return matchesCat && matchesSearch;
+        });
+        const totalPages = Math.max(1, Math.ceil(filtered.length / avatarsPerPage));
+        const currentPage = Math.min(avatarPage, totalPages);
+        const paginated = filtered.slice((currentPage - 1) * avatarsPerPage, currentPage * avatarsPerPage);
+
+        return (
+          <div className="flex flex-col gap-3">
+            {/* Header Toolbar */}
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-300">Avatar Suite ({puppets.length})</label>
+              <div className="flex items-center gap-1.5">
+                {/* Layout Mode Toggle */}
                 <button
-                  key={p.id}
-                  onClick={() => onSelectPuppet(p)}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition ${
-                    isSelected
-                      ? 'bg-indigo-600/20 border-indigo-500 text-white'
-                      : 'bg-slate-900/40 border-slate-800 text-slate-300 hover:border-slate-700'
+                  onClick={() => setAvatarLayoutMode(avatarLayoutMode === 'grid' ? 'list' : 'grid')}
+                  className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-[10px] transition"
+                  title="Toggle Grid / List view"
+                >
+                  {avatarLayoutMode === 'grid' ? '☰ List' : '⊞ Grid'}
+                </button>
+                {/* Per Page Size */}
+                <select
+                  value={avatarsPerPage}
+                  onChange={(e) => {
+                    setAvatarsPerPage(Number(e.target.value));
+                    setAvatarPage(1);
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-mono focus:outline-none"
+                >
+                  <option value={4}>4/pg</option>
+                  <option value={6}>6/pg</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setAvatarCategory(cat);
+                    setAvatarPage(1);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition ${
+                    avatarCategory === cat
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <div>
-                    <p className="font-semibold text-xs text-white">{p.name}</p>
-                    <p className="text-[10px] text-slate-400">{p.author}</p>
-                  </div>
-                  {isSelected && <Check className="w-4 h-4 text-indigo-400" />}
+                  {cat}
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
 
-          <button
-            onClick={onOpenRiggingStudio}
-            className="mt-1 flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 font-medium transition"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Import & Rig Custom SVG</span>
-          </button>
-        </div>
-      )}
+            {/* Search Filter Input */}
+            <input
+              type="text"
+              placeholder="Search 18+ avatars..."
+              value={avatarSearch}
+              onChange={(e) => {
+                setAvatarSearch(e.target.value);
+                setAvatarPage(1);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-200 placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500 transition"
+            />
+
+            {/* Featured Horizontal SVG Preview Carousel Strip */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+              {puppets.map((p) => {
+                const isSelected = p.id === activePuppet.id;
+                return (
+                  <button
+                    key={'strip_' + p.id}
+                    onClick={() => onSelectPuppet(p)}
+                    title={p.name}
+                    className={`w-10 h-10 rounded-lg border p-0.5 shrink-0 transition ${
+                      isSelected
+                        ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-indigo-600/30'
+                        : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                    }`}
+                  >
+                    <div
+                      className="w-full h-full overflow-hidden flex items-center justify-center pointer-events-none"
+                      dangerouslySetInnerHTML={{ __html: p.svgContent }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Paginated Avatar Cards Grid / List with SVG Thumbnail Previews */}
+            <div className={avatarLayoutMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}>
+              {paginated.map((p) => {
+                const isSelected = p.id === activePuppet.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onSelectPuppet(p)}
+                    className={`flex ${
+                      avatarLayoutMode === 'grid' ? 'flex-col items-center p-2 text-center' : 'items-center gap-3 p-2 text-left'
+                    } rounded-xl border transition ${
+                      isSelected
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-600/10 ring-1 ring-indigo-500/50'
+                        : 'bg-slate-900/40 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    {/* SVG Vector Thumbnail Preview */}
+                    <div
+                      className={`${
+                        avatarLayoutMode === 'grid' ? 'w-16 h-16 mb-1' : 'w-12 h-12'
+                      } rounded-lg bg-slate-950 border border-slate-700/60 overflow-hidden flex items-center justify-center p-0.5 shrink-0 shadow-inner pointer-events-none`}
+                      dangerouslySetInnerHTML={{ __html: p.svgContent }}
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-xs text-white truncate">{p.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{p.author}</p>
+                    </div>
+
+                    {isSelected && <Check className="w-4 h-4 text-indigo-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (() => {
+              const getVisiblePages = (current: number, total: number) => {
+                if (total <= 5) {
+                  return Array.from({ length: total }, (_, i) => i + 1);
+                }
+                if (current <= 3) {
+                  return [1, 2, 3, '...', total];
+                }
+                if (current >= total - 2) {
+                  return [1, '...', total - 2, total - 1, total];
+                }
+                return [1, '...', current, '...', total];
+              };
+
+              const visiblePages = getVisiblePages(currentPage, totalPages);
+
+              return (
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                  <button
+                    onClick={() => setAvatarPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage <= 1}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-medium transition"
+                  >
+                    ← Prev
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {visiblePages.map((pg, idx) => {
+                      if (pg === '...') {
+                        return (
+                          <span key={`dots_${idx}`} className="px-1 text-slate-500 text-[10px] font-mono">
+                            ...
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          key={`page_${pg}`}
+                          onClick={() => setAvatarPage(Number(pg))}
+                          className={`w-6 h-6 rounded-md text-[10px] font-mono font-semibold transition ${
+                            pg === currentPage
+                              ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-400'
+                              : 'bg-slate-900/80 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {pg}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setAvatarPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-medium transition"
+                  >
+                    Next →
+                  </button>
+                </div>
+              );
+            })()}
+
+            <button
+              onClick={onOpenRiggingStudio}
+              className="mt-1 flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 font-medium transition"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Import & Rig Custom SVG</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* TAB 2: PROPS */}
       {activeTab === 'props' && (
@@ -307,6 +489,78 @@ export const ControlDashboard = React.memo<ControlDashboardProps>(({
             <span className="font-semibold text-slate-200">Recording Status:</span>
             <span>• Frames Captured: {recordedFramesCount}</span>
             <span>• Loop Mode: {motionRecorder.loop ? 'Enabled' : 'Disabled'}</span>
+          </div>
+
+          {/* Dedicated Mouth Tracking Sensitivity & Calibration Controls */}
+          <div className="p-3 glass-card rounded-xl border border-slate-800/80 flex flex-col gap-2 mt-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-xs text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Mouth Tracking Calibration</span>
+              </span>
+              <span className="text-[10px] font-mono text-indigo-300">
+                {(config.physics?.mouthSensitivity ?? 1.2).toFixed(1)}x
+              </span>
+            </div>
+
+            {/* Lip Sync Engine Mode Selector */}
+            <div className="flex flex-col gap-1 my-1">
+              <label className="text-[10px] text-slate-400">Lip Sync Engine Mode</label>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'phoneme', label: 'Phoneme' },
+                  { id: 'pngtuber', label: 'PNGTuber' },
+                  { id: 'continuous', label: 'Continuous' },
+                ].map((m) => {
+                  const currentMode = config.lipSyncMode || 'phoneme';
+                  const isSelected = currentMode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => onChangeConfig({ ...config, lipSyncMode: m.id as any })}
+                      className={`py-1 text-[10px] font-semibold rounded-md border transition ${
+                        isSelected
+                          ? 'bg-indigo-600 border-indigo-400 text-white shadow'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-slate-400">Mouth Open Sensitivity</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2.5"
+                step="0.1"
+                value={config.physics?.mouthSensitivity ?? 1.2}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  onChangeConfig({
+                    ...config,
+                    physics: { ...config.physics, mouthSensitivity: val },
+                  });
+                }}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                if (onRecalibrateMouth) {
+                  onRecalibrateMouth();
+                }
+              }}
+              className="mt-1 w-full py-1.5 px-3 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Recalibrate Resting Lips Baseline</span>
+            </button>
           </div>
         </div>
       )}

@@ -24,6 +24,8 @@ class FaceTracker {
   public stopCamera(): void;
   public startMicrophone(): Promise<boolean>;
   public stopMicrophone(): void;
+  public recalibrateRestingMouth(): void;
+  public setMouthSensitivity(sensitivity: number): void;
   public stop(): void;
 
   // Callback Registration

@@ -42,24 +42,31 @@ export const PostProcessingCanvas = React.memo<PostProcessingCanvasProps>(({ fil
     };
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      buildGradients(canvas.width, canvas.height);
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = window.innerWidth;
+      const cssH = window.innerHeight;
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+      ctx.scale(dpr, dpr);
+      buildGradients(cssW, cssH);
     };
     resize();
     window.addEventListener('resize', resize);
 
     const render = () => {
       const currentFilter = filterRef.current;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
       if (currentFilter === 'none') {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, w, h);
         animIdRef.current = null;
         return;
       }
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const w = canvas.width;
-      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
 
       if (currentFilter === 'crt') {
         // CRT Scanlines

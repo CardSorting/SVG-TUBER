@@ -12,7 +12,6 @@ import { OverlayView } from './components/OverlayView';
 import { ParticleFXCanvas } from './components/ParticleFXCanvas';
 import { AvatarPropsOverlay } from './components/AvatarPropsOverlay';
 import { TrackingCameraPIP } from './components/TrackingCameraPIP';
-import { ItemThrowerCanvas } from './components/ItemThrowerCanvas';
 import { PostProcessingCanvas } from './components/PostProcessingCanvas';
 import { SVGPuppetDefinition, EngineConfig, FaceTrackingData, ExpressionType } from './types/tuber';
 import { Settings, EyeOff, Sparkles } from 'lucide-react';
@@ -48,7 +47,7 @@ export const App: React.FC = () => {
     activeProp: 'none',
     postFilter: 'none',
     enableSFX: true,
-    showCameraPIP: false,
+    showCameraPIP: true,
     activeExpression: 'neutral',
     enableClickThrough: false,
     alwaysOnTop: true,
@@ -87,6 +86,7 @@ export const App: React.FC = () => {
 
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [throttledStats, setThrottledStats] = useState({
     yaw: 0,
@@ -106,11 +106,16 @@ export const App: React.FC = () => {
     let lastStatsTime = 0;
 
     async function init() {
-      await tracker.initMediaPipe();
-      const camOk = await tracker.startCamera();
-      setIsCameraActive(camOk);
+      // Start camera and microphone immediately so webcam opens without waiting for CDN downloads
+      const camPromise = tracker.startCamera();
+      const micPromise = tracker.startMicrophone();
 
-      const micOk = await tracker.startMicrophone();
+      // Proactively initialize MediaPipe in parallel
+      tracker.initMediaPipe().catch((err) => console.warn('MediaPipe init background warning:', err));
+
+      const [camOk, micOk] = await Promise.all([camPromise, micPromise]);
+      setIsCameraActive(camOk);
+      setCameraError(tracker.cameraError);
       setIsMicActive(micOk);
 
       tracker.onUpdate((raw) => {
@@ -123,7 +128,7 @@ export const App: React.FC = () => {
           recorder.recordFrame(raw);
         }
 
-        const updated = physics.update(inputData, config.physics, config.smoothing);
+        const updated = physics.update(inputData, { ...config.physics, lipSyncMode: config.lipSyncMode }, config.smoothing);
         trackingDataRef.current = updated;
 
         const now = performance.now();
@@ -161,24 +166,19 @@ export const App: React.FC = () => {
     sfxRef.current?.playExpressionSFX(expr);
   }, []);
 
-  const handleHeadImpact = React.useCallback(() => {
-    if (physicsRef.current) {
-      physicsRef.current.squishY = 0.75;
-      physicsRef.current.squishX = 1.25;
-    }
-  }, []);
-
   const handleToggleCamera = React.useCallback(async () => {
     const tracker = trackerRef.current;
     if (!tracker) return;
     if (isCameraActive) {
       tracker.stopCamera();
       setIsCameraActive(false);
+      setCameraError(null);
     } else {
-      const ok = await tracker.startCamera();
+      const ok = await tracker.startCamera(config.cameraDeviceId);
       setIsCameraActive(ok);
+      setCameraError(tracker.cameraError);
     }
-  }, [isCameraActive]);
+  }, [isCameraActive, config.cameraDeviceId]);
 
   const handleToggleMic = React.useCallback(async () => {
     const tracker = trackerRef.current;
@@ -200,6 +200,8 @@ export const App: React.FC = () => {
   const handleOpenRiggingStudio = React.useCallback(() => setShowRiggingStudio(true), []);
   const handleCloseRiggingStudio = React.useCallback(() => setShowRiggingStudio(false), []);
   const handleCloseCameraPIP = React.useCallback(() => setConfig((prev) => ({ ...prev, showCameraPIP: false })), []);
+  const handleGetVideoElement = React.useCallback(() => trackerRef.current?.getVideoElement() ?? null, []);
+  const handleGetCameraStream = React.useCallback(() => trackerRef.current?.getCameraStream() ?? null, []);
 
   const getCanvasBackground = () => {
     switch (config.backgroundMode) {
@@ -237,9 +239,6 @@ export const App: React.FC = () => {
       {/* Post-Processing Visual Shader Canvas */}
       <PostProcessingCanvas filter={config.postFilter} />
 
-      {/* Interactive Item Thrower Canvas */}
-      <ItemThrowerCanvas onHeadImpact={handleHeadImpact} />
-
       {/* Expression Particle Effects Overlay */}
       <ParticleFXCanvas activeExpression={config.activeExpression} />
 
@@ -267,8 +266,12 @@ export const App: React.FC = () => {
         <TrackingCameraPIP
           isCameraActive={isCameraActive}
           onClose={handleCloseCameraPIP}
+          onToggleCamera={handleToggleCamera}
           headYaw={throttledStats.yaw}
           headPitch={throttledStats.pitch}
+          getVideoElement={handleGetVideoElement}
+          getCameraStream={handleGetCameraStream}
+          cameraError={cameraError}
         />
       )}
 
@@ -285,11 +288,17 @@ export const App: React.FC = () => {
         <div className="absolute top-14 left-6 z-30 pointer-events-auto">
           <ControlDashboard
             config={config}
-            onChangeConfig={setConfig}
+            onChangeConfig={(newConfig) => {
+              setConfig(newConfig);
+              if (trackerRef.current && newConfig.physics?.mouthSensitivity) {
+                trackerRef.current.setMouthSensitivity(newConfig.physics.mouthSensitivity);
+              }
+            }}
             puppets={puppets}
             activePuppet={activePuppet}
             onSelectPuppet={setActivePuppet}
             onOpenRiggingStudio={handleOpenRiggingStudio}
+            onRecalibrateMouth={() => trackerRef.current?.recalibrateRestingMouth()}
             trackingStats={throttledStats}
             isCameraActive={isCameraActive}
             isMicActive={isMicActive}
